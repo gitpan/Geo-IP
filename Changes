@@ -1,4 +1,50 @@
 Revision history for Perl extension Geo::IP.
+1.39 May 7th 2011
+        - Upd Docs ( Boris Zentner )
+        - Add glue for the CAPI lib_version method ( Boris Zentner )
+        - Add CAPI glue for the methods enable_teredo and teredo.
+            currently only avail in conjunction with the CAPI ( Boris Zentner )
+        - Add example/benchmark.pl and example/country_v6.pl ( Boris Zentner )
+        - Add name_by_name and name_by_addr ( Boris Zentner )
+        - Add org_by_name_v6 and org_by_addr_v6 only XS ( Boris Zentner )
+        - Add name_by_ipnum_v6, name_by_name_v6 and name_by_addr_v6 XS glue ( Boris Zentner )
+        - Add sub Geo::IP::CLONE_SKIP {1} in conjunction with .xs Avoid thread
+            issues ( Boris Zentner )
+        - Export GEOIP_DOMAIN_EDITION by default ( Boris Zentner )
+        - Update region codes 20100810 ( Boris Zentner ) 
+        - Fix some PP 3letter country codes ( Boris Zentner )
+        - Fix PP continent codes ( Boris Zentner )
+        - Add PP continent_code_by_country_code ( Boris Zentner )
+        - Add PP Geo::IP->time_zone ( Boris Zentner )
+        - Update region codes 20100420 ( Boris Zentner )
+        - Link at least to CAPI 1.4.7 ( Boris Zentner )
+        - Add example/geolite-mirror-simple.pl to download maxmind databases ( Boris Zentner )
+        - Update region codes ( Boris Zentner )
+        - Update timezones ( Boris Zentner )
+        - Add isp_by_name and isp_by_addr if the CAPI is used ( Boris Zentner )
+        - Add isp_by_addr and org_by_addr to the PurePerl API ( Boris Zentner )
+        - Add api method, so users know if they use the PurePerl or CAPI glue
+          print Geo::IP->api ( Boris Zentner )
+        - Silence redefined warning, when perl is started with -w and the
+            PurePerl API is used ( Boris Zentner )
+        - Export GEOIP_CITYCONFIDENCE_EDITION, GEOIP_LOCATIONA_EDITION,
+          GEOIP_ACCURACYRADIUS_EDITION and GEOIP_COUNTRY_EDITION_V6 ( Boris Zentner )
+        - Add some more v6 XS glue. IPv6 support require the CAPI to work.
+            GeoIP_country_code_by_addr_v6
+            GeoIP_country_code_by_name_v6
+            GeoIP_country_code3_by_addr_v6
+            GeoIP_country_code3_by_name_v6
+            ( Boris Zentner )
+        ! Change RU's continent code from AS to EU ( Boris Zentner )
+        ! Change Turkey's continent code from AS to EU ( Boris Zentner )
+        ! org_by_* and friends return UTF8 scalars, if the charset is set to GEOIP_CHARSET_UTF8 ( Boris Zentner )
+        - Add PP ASNum support ( Boris Zentner )
+        - Add XS glue for time_zone and continent_code_by_country_code ( Boris Zentner )
+        - Add glue for database_edition ( Boris Zentner )
+        - Workaround centos/mod_perl issue when the PP fallback is used and
+          Sys::Mmap is not installed ( Boris Zentner )  
+        - Update PurePerl region names 20090723 ( Boris Zentner )
+        - Add XS glue for GeoIP_country_code_by_ipnum_v6 ( Boris Zentner )
 1.38 May 16th 2009
         - PurePerl region_by_addr and region_by_name return '00' for unknown regions, like the CAPI does ( Boris Zentner )
         - Update to latest FIPS codes from 20090401 ( Boris Zentner )

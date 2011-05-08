@@ -7,7 +7,7 @@ use vars qw($VERSION @EXPORT  $GEOIP_PP_ONLY @ISA $XS_VERSION);
 BEGIN { $GEOIP_PP_ONLY = 0 unless defined($GEOIP_PP_ONLY); }
 
 BEGIN {
-  $VERSION = '1.38';
+  $VERSION = '1.39';
   eval {
 
     # PERL_DL_NONLAZY must be false, or any errors in loading will just
@@ -38,34 +38,60 @@ BEGIN {
   #my $pp = !( defined &_XScompiled && &_XScompiled && !$TESTING_PERL_ONLY );
   my $pp = !defined &open;
 
-  sub GEOIP_COUNTRY_EDITION()     { 1; }
-  sub GEOIP_CITY_EDITION_REV1()   { 2; }
-  sub GEOIP_REGION_EDITION_REV1() { 3; }
-  sub GEOIP_ISP_EDITION()         { 4; }
-  sub GEOIP_ORG_EDITION()         { 5; }
-  sub GEOIP_CITY_EDITION_REV0()   { 6; }
-  sub GEOIP_REGION_EDITION_REV0() { 7; }
-  sub GEOIP_PROXY_EDITION()       { 8; }
-  sub GEOIP_ASNUM_EDITION()       { 9; }
-  sub GEOIP_NETSPEED_EDITION()    { 10; }
-  sub GEOIP_DOMAIN_EDITION()      { 11; }
+  sub GEOIP_COUNTRY_EDITION()        { 1; }
+  sub GEOIP_CITY_EDITION_REV1()      { 2; }
+  sub GEOIP_REGION_EDITION_REV1()    { 3; }
+  sub GEOIP_ISP_EDITION()            { 4; }
+  sub GEOIP_ORG_EDITION()            { 5; }
+  sub GEOIP_CITY_EDITION_REV0()      { 6; }
+  sub GEOIP_REGION_EDITION_REV0()    { 7; }
+  sub GEOIP_PROXY_EDITION()          { 8; }
+  sub GEOIP_ASNUM_EDITION()          { 9; }
+  sub GEOIP_NETSPEED_EDITION()       { 10; }
+  sub GEOIP_DOMAIN_EDITION()         { 11; }
+  sub GEOIP_COUNTRY_EDITION_V6()     { 12; }
+  sub GEOIP_LOCATIONA_EDITION()      { 13; }
+  sub GEOIP_ACCURACYRADIUS_EDITION() { 14; }
+  sub GEOIP_CITYCONFIDENCE_EDITION() { 15; }
 
   sub GEOIP_CHARSET_ISO_8859_1() { 0; }
   sub GEOIP_CHARSET_UTF8()       { 1; }
 
+  #
+  sub api {
+    defined &Geo::IP::Record::_XScompiled ? 'CAPI' : 'PurePerl';
+  }
+
   # cheat --- try to load Sys::Mmap PurePerl only
   if ($pp) {
-    eval "require Sys::Mmap"
-      ? Sys::Mmap->import
-      : do {
-      for (qw/ PROT_READ MAP_PRIVATE MAP_SHARED /) {
-        no strict 'refs';
-        my $unused_stub = $_;    # we must use a copy
-        *$unused_stub = sub { die 'Sys::Mmap required for mmap support' };
-      }
-      }    # do
-  }    # pp
+    eval {
 
+      # wrap into eval again, as workaround for centos / mod_perl issue
+      # seems they use $@ without eval somewhere
+      eval "require Sys::Mmap"
+        ? Sys::Mmap->import
+        : do {
+        for (qw/ PROT_READ MAP_PRIVATE MAP_SHARED /) {
+          no strict 'refs';
+          my $unused_stub = $_;    # we must use a copy
+          *$unused_stub = sub { die 'Sys::Mmap required for mmap support' };
+        }    # for
+        };    # do
+      1;
+    };    # eval
+  }    # pp
+  else {
+    eval << '__CAPI_GLUE__';
+  # threads should not clone or DESTROY the GeoIP object.
+  sub CLONE_SKIP {1}
+
+  *name_by_name = *isp_by_name = *org_by_name;
+  *name_by_addr = *isp_by_addr = *org_by_addr;
+
+  *org_by_name_v6 = *name_by_name_v6;
+  *org_by_addr_v6 = *name_by_addr_v6;
+__CAPI_GLUE__
+  }
 }
 
 eval << '__PP_CODE__' unless defined &open;
@@ -73,6 +99,8 @@ eval << '__PP_CODE__' unless defined &open;
 use strict;
 use FileHandle;
 use File::Spec;
+
+require bytes;
 
 BEGIN {
   if ( $] >= 5.008 ) {
@@ -113,32 +141,32 @@ use constant FIPS_RANGE                => 360;
 
 my @continents = qw/
 --
-AS EU EU AS AS SA SA EU AS SA
-AF AN SA OC EU OC SA AS EU SA
-AS EU AF EU AS AF AF SA AS SA
-SA SA AS AF AF EU SA NA AS AF
-AF AF EU AF OC SA AF AS SA SA
-SA AF AS AS EU EU AF EU SA SA
-AF SA EU AF AF AF EU AF EU OC
-SA OC EU EU EU AF EU SA AS SA
-AF EU SA AF AF SA AF EU SA SA
-OC AF SA AS AF SA EU SA EU AS
-EU AS AS AS AS AS EU EU SA AS
-AS AF AS AS OC AF SA AS AS AS
-SA AS AS AS SA EU AS AF AF EU
-EU EU AF AF EU EU AF OC EU AF
-AS AS AS OC SA AF SA EU AF AS
-AF NA AS AF AF OC AF OC AF SA
-EU EU AS OC OC OC AS SA SA OC
-OC AS AS EU SA OC SA AS EU OC
-SA AS AF EU AS AF AS OC AF AF
-EU AS AF EU EU EU AF EU AF AF
-SA AF SA AS AF SA AF AF AF AS
-AS OC AS AF OC AS AS SA OC AS
-AF EU AF OC NA SA AS EU SA SA
-SA SA AS OC OC OC AS AF EU AF
-AF EU AF -- -- -- EU EU EU EU
-SA SA
+AS EU EU AS AS NA NA EU AS NA 
+AF AN SA OC EU OC NA AS EU NA 
+AS EU AF EU AS AF AF NA AS SA 
+SA NA AS AN AF EU NA NA AS AF 
+AF AF EU AF OC SA AF AS SA NA 
+NA AF AS AS EU EU AF EU NA NA 
+AF SA EU AF AF AF EU AF EU OC 
+SA OC EU EU EU AF EU NA AS SA 
+AF EU NA AF AF NA AF EU AN NA 
+OC AF SA AS AN NA EU NA EU AS 
+EU AS AS AS AS AS EU EU NA AS 
+AS AF AS AS OC AF NA AS AS AS 
+NA AS AS AS NA EU AS AF AF EU 
+EU EU AF AF EU EU AF OC EU AF 
+AS AS AS OC NA AF NA EU AF AS 
+AF NA AS AF AF OC AF OC AF NA 
+EU EU AS OC OC OC AS NA SA OC 
+OC AS AS EU NA OC NA AS EU OC 
+SA AS AF EU EU AF AS OC AF AF 
+EU AS AF EU EU EU AF EU AF AF 
+SA AF NA AS AF NA AF AN AF AS 
+AS OC AS AF OC AS EU NA OC AS 
+AF EU AF OC NA SA AS EU NA SA 
+NA NA AS OC OC OC AS AF EU AF 
+AF EU AF -- -- -- EU EU EU EU 
+NA NA 
 /;
 
 my @countries = (
@@ -176,21 +204,28 @@ my @countries = (
  ZA ZM ME ZW A1 A2 O1 AX 
  GG IM JE BL MF/
 );
+
+
+my %_id_by_code;
+for ( 1 .. $#countries ) {
+  $_id_by_code{ $countries[$_] } = $_;
+}
+
 my @code3s = ( undef, qw/
                    AP  EU  AND ARE AFG ATG AIA
-               ALB ARM ANT AGO AQ  ARG ASM AUT
+               ALB ARM ANT AGO ATA ARG ASM AUT
                AUS ABW AZE BIH BRB BGD BEL BFA
                BGR BHR BDI BEN BMU BRN BOL BRA
-               BHS BTN BV  BWA BLR BLZ CAN CC
+               BHS BTN BVT BWA BLR BLZ CAN CCK
                COD CAF COG CHE CIV COK CHL CMR
-               CHN COL CRI CUB CPV CX  CYP CZE
+               CHN COL CRI CUB CPV CXR CYP CZE
                DEU DJI DNK DMA DOM DZA ECU EST
                EGY ESH ERI ESP ETH FIN FJI FLK
                FSM FRO FRA FX  GAB GBR GRD GEO
                GUF GHA GIB GRL GMB GIN GLP GNQ
-               GRC GS  GTM GUM GNB GUY HKG HM
+               GRC SGS GTM GUM GNB GUY HKG HMD
                HND HRV HTI HUN IDN IRL ISR IND
-               IO  IRQ IRN ISL ITA JAM JOR JPN
+               IOT IRQ IRN ISL ITA JAM JOR JPN
                KEN KGZ KHM KIR COM KNA PRK KOR
                KWT CYM KAZ LAO LBN LCA LIE LKA
                LBR LSO LTU LUX LVA LBY MAR MCO
@@ -203,10 +238,10 @@ my @code3s = ( undef, qw/
                ROU RUS RWA SAU SLB SYC SDN SWE
                SGP SHN SVN SJM SVK SLE SMR SEN
                SOM SUR STP SLV SYR SWZ TCA TCD
-               TF  TGO THA TJK TKL TKM TUN TON
+               ATF TGO THA TJK TKL TKM TUN TON
                TLS TUR TTO TUV TWN TZA UKR UGA
-               UM  USA URY UZB VAT VCT VEN VGB
-               VIR VNM VUT WLF WSM YEM YT  SRB
+               UMI USA URY UZB VAT VCT VEN VGB
+               VIR VNM VUT WLF WSM YEM MYT SRB
                ZAF ZMB MNE ZWE A1  A2  O1  ALA
 			   GGY IMN JEY BLM MAF         /
 );
@@ -501,13 +536,9 @@ my %country_region_names = (
             '11' => 'Herat',
             '13' => 'Kabol',
             '14' => 'Kapisa',
-            '15' => 'Konar',
-            '16' => 'Laghman',
             '17' => 'Lowgar',
             '18' => 'Nangarhar',
             '19' => 'Nimruz',
-            '21' => 'Paktia',
-            '22' => 'Parvan',
             '23' => 'Kandahar',
             '24' => 'Kondoz',
             '26' => 'Takhar',
@@ -535,7 +566,8 @@ my %country_region_names = (
             '05' => 'Saint Mary',
             '06' => 'Saint Paul',
             '07' => 'Saint Peter',
-            '08' => 'Saint Philip'
+            '08' => 'Saint Philip',
+            '09' => 'Redonda'
   },
   'AL' => {
             '40' => 'Berat',
@@ -574,7 +606,6 @@ my %country_region_names = (
             '07' => 'Cunene',
             '08' => 'Huambo',
             '09' => 'Huila',
-            '10' => 'Luanda',
             '12' => 'Malanje',
             '13' => 'Namibe',
             '14' => 'Moxico',
@@ -723,70 +754,6 @@ my %country_region_names = (
             '11' => 'Saint Thomas'
   },
   'BD' => {
-            '01' => 'Barisal',
-            '04' => 'Bandarban',
-            '05' => 'Comilla',
-            '12' => 'Mymensingh',
-            '13' => 'Noakhali',
-            '15' => 'Patuakhali',
-            '22' => 'Bagerhat',
-            '23' => 'Bhola',
-            '24' => 'Bogra',
-            '25' => 'Barguna',
-            '26' => 'Brahmanbaria',
-            '27' => 'Chandpur',
-            '28' => 'Chapai Nawabganj',
-            '29' => 'Chattagram',
-            '30' => 'Chuadanga',
-            '31' => 'Cox\'s Bazar',
-            '32' => 'Dhaka',
-            '33' => 'Dinajpur',
-            '34' => 'Faridpur',
-            '35' => 'Feni',
-            '36' => 'Gaibandha',
-            '37' => 'Gazipur',
-            '38' => 'Gopalganj',
-            '39' => 'Habiganj',
-            '40' => 'Jaipurhat',
-            '41' => 'Jamalpur',
-            '42' => 'Jessore',
-            '43' => 'Jhalakati',
-            '44' => 'Jhenaidah',
-            '45' => 'Khagrachari',
-            '46' => 'Khulna',
-            '47' => 'Kishorganj',
-            '48' => 'Kurigram',
-            '49' => 'Kushtia',
-            '50' => 'Laksmipur',
-            '51' => 'Lalmonirhat',
-            '52' => 'Madaripur',
-            '53' => 'Magura',
-            '54' => 'Manikganj',
-            '55' => 'Meherpur',
-            '56' => 'Moulavibazar',
-            '57' => 'Munshiganj',
-            '58' => 'Naogaon',
-            '59' => 'Narail',
-            '60' => 'Narayanganj',
-            '61' => 'Narsingdi',
-            '62' => 'Nator',
-            '63' => 'Netrakona',
-            '64' => 'Nilphamari',
-            '65' => 'Pabna',
-            '66' => 'Panchagar',
-            '67' => 'Parbattya Chattagram',
-            '68' => 'Pirojpur',
-            '69' => 'Rajbari',
-            '70' => 'Rajshahi',
-            '71' => 'Rangpur',
-            '72' => 'Satkhira',
-            '73' => 'Shariyatpur',
-            '74' => 'Sherpur',
-            '75' => 'Sirajganj',
-            '76' => 'Sunamganj',
-            '77' => 'Sylhet',
-            '78' => 'Tangail',
-            '79' => 'Thakurgaon',
             '81' => 'Dhaka',
             '82' => 'Khulna',
             '83' => 'Rajshahi',
@@ -796,7 +763,6 @@ my %country_region_names = (
   },
   'BE' => {
             '01' => 'Antwerpen',
-            '02' => 'Brabant',
             '03' => 'Hainaut',
             '04' => 'Liege',
             '05' => 'Limburg',
@@ -889,10 +855,8 @@ my %country_region_names = (
   'BH' => {
             '01' => 'Al Hadd',
             '02' => 'Al Manamah',
-            '03' => 'Al Muharraq',
             '05' => 'Jidd Hafs',
             '06' => 'Sitrah',
-            '07' => 'Ar Rifa\' wa al Mintaqah al Janubiyah',
             '08' => 'Al Mintaqah al Gharbiyah',
             '09' => 'Mintaqat Juzur Hawar',
             '10' => 'Al Mintaqah ash Shamaliyah',
@@ -925,12 +889,6 @@ my %country_region_names = (
             '23' => 'Mwaro'
   },
   'BJ' => {
-            '01' => 'Atakora',
-            '02' => 'Atlantique',
-            '03' => 'Borgou',
-            '04' => 'Mono',
-            '05' => 'Oueme',
-            '06' => 'Zou',
             '07' => 'Alibori',
             '08' => 'Atakora',
             '09' => 'Atlanyique',
@@ -1103,13 +1061,11 @@ my %country_region_names = (
             '04' => 'Kasai-Oriental',
             '05' => 'Katanga',
             '06' => 'Kinshasa',
-            '07' => 'Kivu',
             '08' => 'Bas-Congo',
             '09' => 'Orientale',
             '10' => 'Maniema',
             '11' => 'Nord-Kivu',
-            '12' => 'Sud-Kivu',
-            '13' => 'Cuvette'
+            '12' => 'Sud-Kivu'
   },
   'CF' => {
             '01' => 'Bamingui-Bangoran',
@@ -1132,7 +1088,6 @@ my %country_region_names = (
   },
   'CG' => {
             '01' => 'Bouenza',
-            '03' => 'Cuvette',
             '04' => 'Kouilou',
             '05' => 'Lekoumou',
             '06' => 'Likouala',
@@ -1140,7 +1095,9 @@ my %country_region_names = (
             '08' => 'Plateaux',
             '10' => 'Sangha',
             '11' => 'Pool',
-            '12' => 'Brazzaville'
+            '12' => 'Brazzaville',
+            '13' => 'Cuvette',
+            '14' => 'Cuvette-Ouest'
   },
   'CH' => {
             '01' => 'Aargau',
@@ -1171,10 +1128,6 @@ my %country_region_names = (
             '26' => 'Jura'
   },
   'CI' => {
-            '05' => 'Atacama',
-            '06' => 'Biobio',
-            '51' => 'Sassandra',
-            '61' => 'Abidjan',
             '74' => 'Agneby',
             '75' => 'Bafing',
             '76' => 'Bas-Sassandra',
@@ -1208,7 +1161,11 @@ my %country_region_names = (
             '10' => 'Magallanes y de la Antartica Chilena',
             '11' => 'Maule',
             '12' => 'Region Metropolitana',
-            '13' => 'Tarapaca'
+            '13' => 'Tarapaca',
+            '14' => 'Los Lagos',
+            '15' => 'Tarapaca',
+            '16' => 'Arica y Parinacota',
+            '17' => 'Los Rios'
   },
   'CM' => {
             '04' => 'Est',
@@ -1347,22 +1304,7 @@ my %country_region_names = (
             '06' => 'Paphos'
   },
   'CZ' => {
-            '03' => 'Blansko',
-            '04' => 'Breclav',
-            '20' => 'Hradec Kralove',
-            '21' => 'Jablonec nad Nisou',
-            '23' => 'Jicin',
-            '24' => 'Jihlava',
-            '30' => 'Kolin',
-            '33' => 'Liberec',
-            '36' => 'Melnik',
-            '37' => 'Mlada Boleslav',
-            '39' => 'Nachod',
-            '41' => 'Nymburk',
-            '45' => 'Pardubice',
             '52' => 'Hlavni mesto Praha',
-            '61' => 'Semily',
-            '70' => 'Trutnov',
             '78' => 'Jihomoravsky kraj',
             '79' => 'Jihocesky kraj',
             '80' => 'Vysocina',
@@ -1404,23 +1346,8 @@ my %country_region_names = (
             '08' => 'Arta'
   },
   'DK' => {
-            '01' => 'Arhus',
-            '02' => 'Bornholm',
-            '03' => 'Frederiksborg',
-            '04' => 'Fyn',
-            '05' => 'Kobenhavn',
-            '06' => 'Staden Kobenhavn',
-            '07' => 'Nordjylland',
-            '08' => 'Ribe',
-            '09' => 'Ringkobing',
-            '10' => 'Roskilde',
-            '11' => 'Sonderjylland',
-            '12' => 'Storstrom',
-            '13' => 'Vejle',
-            '14' => 'Vestsjalland',
-            '15' => 'Viborg',
             '17' => 'Hovedstaden',
-            '18' => 'Midtjyllen',
+            '18' => 'Midtjylland',
             '19' => 'Nordjylland',
             '20' => 'Sjelland',
             '21' => 'Syddanmark'
@@ -1626,14 +1553,6 @@ my %country_region_names = (
             '60' => 'Comunidad Valenciana'
   },
   'ET' => {
-            '02' => 'Amhara',
-            '07' => 'Somali',
-            '08' => 'Gambella',
-            '10' => 'Addis Abeba',
-            '11' => 'Southern',
-            '12' => 'Tigray',
-            '13' => 'Benishangul',
-            '14' => 'Afar',
             '44' => 'Adis Abeba',
             '45' => 'Afar',
             '46' => 'Amara',
@@ -1703,29 +1622,6 @@ my %country_region_names = (
             '09' => 'Woleu-Ntem'
   },
   'GB' => {
-            '01' => 'Avon',
-            '03' => 'Berkshire',
-            '07' => 'Cleveland',
-            '17' => 'Greater London',
-            '18' => 'Greater Manchester',
-            '20' => 'Hereford and Worcester',
-            '22' => 'Humberside',
-            '28' => 'Merseyside',
-            '37' => 'South Yorkshire',
-            '41' => 'Tyne and Wear',
-            '43' => 'West Midlands',
-            '45' => 'West Yorkshire',
-            '79' => 'Central',
-            '82' => 'Grampian',
-            '84' => 'Lothian',
-            '87' => 'Strathclyde',
-            '88' => 'Tayside',
-            '90' => 'Clwyd',
-            '91' => 'Dyfed',
-            '92' => 'Gwent',
-            '94' => 'Mid Glamorgan',
-            '96' => 'South Glamorgan',
-            '97' => 'West Glamorgan',
             'A1' => 'Barking and Dagenham',
             'A2' => 'Barnet',
             'A3' => 'Barnsley',
@@ -2297,7 +2193,8 @@ my %country_region_names = (
             '39' => 'Veszprem',
             '40' => 'Zalaegerszeg',
             '41' => 'Salgotarjan',
-            '42' => 'Szekszard'
+            '42' => 'Szekszard',
+            '43' => 'Erd'
   },
   'ID' => {
             '01' => 'Aceh',
@@ -2436,7 +2333,6 @@ my %country_region_names = (
   },
   'IR' => {
             '01' => 'Azarbayjan-e Bakhtari',
-            '02' => 'Azarbayjan-e Khavari',
             '03' => 'Chahar Mahall va Bakhtiari',
             '04' => 'Sistan va Baluchestan',
             '05' => 'Kohkiluyeh va Buyer Ahmadi',
@@ -2490,6 +2386,7 @@ my %country_region_names = (
             '23' => 'Rangarvallasysla',
             '28' => 'Skagafjardarsysla',
             '29' => 'Snafellsnes- og Hnappadalssysla',
+            '30' => 'Strandasysla',
             '31' => 'Sudur-Mulasysla',
             '32' => 'Sudur-Tingeyjarsysla',
             '34' => 'Vestur-Bardastrandarsysla',
@@ -2623,7 +2520,6 @@ my %country_region_names = (
             '09' => 'Batken'
   },
   'KH' => {
-            '00' => 'Banteay Meanchey',
             '01' => 'Batdambang',
             '02' => 'Kampong Cham',
             '03' => 'Kampong Chhnang',
@@ -2643,6 +2539,7 @@ my %country_region_names = (
             '17' => 'Stung Treng',
             '18' => 'Svay Rieng',
             '19' => 'Takeo',
+            '25' => 'Banteay Meanchey',
             '29' => 'Batdambang',
             '30' => 'Pailin'
   },
@@ -2759,6 +2656,7 @@ my %country_region_names = (
   },
   'LB' => {
             '01' => 'Beqaa',
+            '02' => 'Al Janub',
             '03' => 'Liban-Nord',
             '04' => 'Beyrouth',
             '05' => 'Mont-Liban',
@@ -2834,6 +2732,7 @@ my %country_region_names = (
   'LR' => {
             '01' => 'Bong',
             '04' => 'Grand Cape Mount',
+            '05' => 'Lofa',
             '06' => 'Maryland',
             '07' => 'Monrovia',
             '09' => 'Nimba',
@@ -2941,45 +2840,6 @@ my %country_region_names = (
             '62' => 'Yafran'
   },
   'MA' => {
-            '01' => 'Agadir',
-            '02' => 'Al Hoceima',
-            '03' => 'Azilal',
-            '04' => 'Ben Slimane',
-            '05' => 'Beni Mellal',
-            '06' => 'Boulemane',
-            '07' => 'Casablanca',
-            '08' => 'Chaouen',
-            '09' => 'El Jadida',
-            '10' => 'El Kelaa des Srarhna',
-            '11' => 'Er Rachidia',
-            '12' => 'Essaouira',
-            '13' => 'Fes',
-            '14' => 'Figuig',
-            '15' => 'Kenitra',
-            '16' => 'Khemisset',
-            '17' => 'Khenifra',
-            '18' => 'Khouribga',
-            '19' => 'Marrakech',
-            '20' => 'Meknes',
-            '21' => 'Nador',
-            '22' => 'Ouarzazate',
-            '23' => 'Oujda',
-            '24' => 'Rabat-Sale',
-            '25' => 'Safi',
-            '26' => 'Settat',
-            '27' => 'Tanger',
-            '29' => 'Tata',
-            '30' => 'Taza',
-            '32' => 'Tiznit',
-            '33' => 'Guelmim',
-            '34' => 'Ifrane',
-            '35' => 'Laayoune',
-            '36' => 'Tan-Tan',
-            '37' => 'Taounate',
-            '38' => 'Sidi Kacem',
-            '39' => 'Taroudannt',
-            '40' => 'Tetouan',
-            '41' => 'Larache',
             '45' => 'Grand Casablanca',
             '46' => 'Fes-Boulemane',
             '47' => 'Marrakech-Tensift-Al Haouz',
@@ -3002,17 +2862,8 @@ my %country_region_names = (
             '03' => 'Monte-Carlo'
   },
   'MD' => {
-            '46' => 'Balti',
-            '47' => 'Cahul',
-            '48' => 'Chisinau',
-            '49' => 'Stinga Nistrului',
-            '50' => 'Edinet',
             '51' => 'Gagauzia',
-            '52' => 'Lapusna',
-            '53' => 'Orhei',
-            '54' => 'Soroca',
-            '55' => 'Tighina',
-            '56' => 'Ungheni',
+            '57' => 'Chisinau',
             '58' => 'Stinga Nistrului',
             '59' => 'Anenii Noi',
             '60' => 'Balti',
@@ -3274,25 +3125,25 @@ my %country_region_names = (
   },
   'MV' => {
             '01' => 'Seenu',
-            '02' => 'Aliff',
-            '03' => 'Laviyani',
-            '04' => 'Waavu',
             '05' => 'Laamu',
-            '07' => 'Haa Aliff',
-            '08' => 'Thaa',
-            '12' => 'Meemu',
-            '13' => 'Raa',
-            '14' => 'Faafu',
-            '17' => 'Daalu',
-            '20' => 'Baa',
-            '23' => 'Haa Daalu',
-            '24' => 'Shaviyani',
-            '25' => 'Noonu',
-            '26' => 'Kaafu',
-            '27' => 'Gaafu Aliff',
-            '28' => 'Gaafu Daalu',
-            '29' => 'Naviyani',
-            '40' => 'Male'
+            '30' => 'Alifu',
+            '31' => 'Baa',
+            '32' => 'Dhaalu',
+            '33' => 'Faafu ',
+            '34' => 'Gaafu Alifu',
+            '35' => 'Gaafu Dhaalu',
+            '36' => 'Haa Alifu',
+            '37' => 'Haa Dhaalu',
+            '38' => 'Kaafu',
+            '39' => 'Lhaviyani',
+            '40' => 'Maale',
+            '41' => 'Meemu',
+            '42' => 'Gnaviyani',
+            '43' => 'Noonu',
+            '44' => 'Raa',
+            '45' => 'Shaviyani',
+            '46' => 'Thaa',
+            '47' => 'Vaavu'
   },
   'MW' => {
             '02' => 'Chikwawa',
@@ -3440,10 +3291,8 @@ my %country_region_names = (
   },
   'NG' => {
             '05' => 'Lagos',
-            '10' => 'Rivers',
             '11' => 'Federal Capital Territory',
             '16' => 'Ogun',
-            '17' => 'Ondo',
             '21' => 'Akwa Ibom',
             '22' => 'Cross River',
             '23' => 'Kaduna',
@@ -3511,9 +3360,6 @@ my %country_region_names = (
             '09' => 'Utrecht',
             '10' => 'Zeeland',
             '11' => 'Zuid-Holland',
-            '12' => 'Dronten',
-            '13' => 'Zuidelijke IJsselmeerpolders',
-            '14' => 'Lelystad',
             '15' => 'Overijssel',
             '16' => 'Flevoland'
   },
@@ -3704,6 +3550,7 @@ my %country_region_names = (
             '42' => 'Misamis Occidental',
             '43' => 'Misamis Oriental',
             '44' => 'Mountain',
+            '45' => 'Negros Occidental',
             '46' => 'Negros Oriental',
             '47' => 'Nueva Ecija',
             '48' => 'Nueva Vizcaya',
@@ -3806,55 +3653,6 @@ my %country_region_names = (
             '08' => 'Islamabad'
   },
   'PL' => {
-            '23' => 'Biala Podlaska',
-            '24' => 'Bialystok',
-            '25' => 'Bielsko',
-            '26' => 'Bydgoszcz',
-            '27' => 'Chelm',
-            '28' => 'Ciechanow',
-            '29' => 'Czestochowa',
-            '30' => 'Elblag',
-            '31' => 'Gdansk',
-            '32' => 'Gorzow',
-            '33' => 'Jelenia Gora',
-            '34' => 'Kalisz',
-            '35' => 'Katowice',
-            '36' => 'Kielce',
-            '37' => 'Konin',
-            '38' => 'Koszalin',
-            '39' => 'Krakow',
-            '40' => 'Krosno',
-            '41' => 'Legnica',
-            '42' => 'Leszno',
-            '43' => 'Lodz',
-            '44' => 'Lomza',
-            '45' => 'Lublin',
-            '46' => 'Nowy Sacz',
-            '47' => 'Olsztyn',
-            '48' => 'Opole',
-            '49' => 'Ostroleka',
-            '50' => 'Pila',
-            '51' => 'Piotrkow',
-            '52' => 'Plock',
-            '53' => 'Poznan',
-            '54' => 'Przemysl',
-            '55' => 'Radom',
-            '56' => 'Rzeszow',
-            '57' => 'Siedlce',
-            '58' => 'Sieradz',
-            '59' => 'Skierniewice',
-            '60' => 'Slupsk',
-            '61' => 'Suwalki',
-            '62' => 'Szczecin',
-            '63' => 'Tarnobrzeg',
-            '64' => 'Tarnow',
-            '65' => 'Torun',
-            '66' => 'Walbrzych',
-            '67' => 'Warszawa',
-            '68' => 'Wloclawek',
-            '69' => 'Wroclaw',
-            '70' => 'Zamosc',
-            '71' => 'Zielona Gora',
             '72' => 'Dolnoslaskie',
             '73' => 'Kujawsko-Pomorskie',
             '74' => 'Lodzkie',
@@ -4077,6 +3875,7 @@ my %country_region_names = (
   'RW' => {
             '01' => 'Butare',
             '06' => 'Gitarama',
+            '07' => 'Kibungo',
             '09' => 'Kigali',
             '11' => 'Est',
             '12' => 'Kigali',
@@ -4150,23 +3949,18 @@ my %country_region_names = (
             '44' => 'Central Equatoria State'
   },
   'SE' => {
-            '01' => 'Alvsborgs Lan',
             '02' => 'Blekinge Lan',
             '03' => 'Gavleborgs Lan',
-            '04' => 'Goteborgs och Bohus Lan',
             '05' => 'Gotlands Lan',
             '06' => 'Hallands Lan',
             '07' => 'Jamtlands Lan',
             '08' => 'Jonkopings Lan',
             '09' => 'Kalmar Lan',
             '10' => 'Dalarnas Lan',
-            '11' => 'Kristianstads Lan',
             '12' => 'Kronobergs Lan',
-            '13' => 'Malmohus Lan',
             '14' => 'Norrbottens Lan',
             '15' => 'Orebro Lan',
             '16' => 'Ostergotlands Lan',
-            '17' => 'Skaraborgs Lan',
             '18' => 'Sodermanlands Lan',
             '21' => 'Uppsala Lan',
             '22' => 'Varmlands Lan',
@@ -4355,7 +4149,6 @@ my %country_region_names = (
   'SN' => {
             '01' => 'Dakar',
             '03' => 'Diourbel',
-            '04' => 'Saint-Louis',
             '05' => 'Tambacounda',
             '07' => 'Thies',
             '09' => 'Fatick',
@@ -4460,8 +4253,6 @@ my %country_region_names = (
             '14' => 'Tandjile'
   },
   'TG' => {
-            '09' => 'Lama-Kara',
-            '18' => 'Tsevie',
             '22' => 'Centrale',
             '23' => 'Kara',
             '24' => 'Maritime',
@@ -4564,6 +4355,7 @@ my %country_region_names = (
             '02' => 'Kasserine',
             '03' => 'Kairouan',
             '06' => 'Jendouba',
+            '10' => 'Qafsah',
             '14' => 'El Kef',
             '15' => 'Al Mahdia',
             '16' => 'Al Munastir',
@@ -4572,18 +4364,18 @@ my %country_region_names = (
             '19' => 'Nabeul',
             '22' => 'Siliana',
             '23' => 'Sousse',
-            '26' => 'Ariana',
             '27' => 'Ben Arous',
             '28' => 'Madanin',
             '29' => 'Gabes',
-            '30' => 'Gafsa',
             '31' => 'Kebili',
             '32' => 'Sfax',
             '33' => 'Sidi Bou Zid',
             '34' => 'Tataouine',
             '35' => 'Tozeur',
             '36' => 'Tunis',
-            '37' => 'Zaghouan'
+            '37' => 'Zaghouan',
+            '38' => 'Aiana',
+            '39' => 'Manouba'
   },
   'TO' => {
             '01' => 'Ha',
@@ -4616,7 +4408,7 @@ my %country_region_names = (
             '26' => 'Eskisehir',
             '28' => 'Giresun',
             '31' => 'Hatay',
-            '32' => 'Icel',
+            '32' => 'Mersin',
             '33' => 'Isparta',
             '34' => 'Istanbul',
             '35' => 'Izmir',
@@ -4751,29 +4543,40 @@ my %country_region_names = (
             '27' => 'Zhytomyrs\'ka Oblast\''
   },
   'UG' => {
-            '05' => 'Busoga',
-            '08' => 'Karamoja',
-            '12' => 'South Buganda',
-            '18' => 'Central',
-            '20' => 'Eastern',
-            '21' => 'Nile',
-            '22' => 'North Buganda',
-            '23' => 'Northern',
-            '24' => 'Southern',
-            '25' => 'Western',
+            '26' => 'Apac',
+            '28' => 'Bundibugyo',
+            '29' => 'Bushenyi',
+            '30' => 'Gulu',
+            '31' => 'Hoima',
             '33' => 'Jinja',
             '36' => 'Kalangala',
             '37' => 'Kampala',
+            '38' => 'Kamuli',
+            '39' => 'Kapchorwa',
+            '40' => 'Kasese',
+            '41' => 'Kibale',
             '42' => 'Kiboga',
+            '43' => 'Kisoro',
+            '45' => 'Kotido',
+            '46' => 'Kumi',
+            '47' => 'Lira',
+            '50' => 'Masindi',
             '52' => 'Mbarara',
             '56' => 'Mubende',
+            '58' => 'Nebbi',
+            '59' => 'Ntungamo',
+            '60' => 'Pallisa',
+            '61' => 'Rakai',
             '65' => 'Adjumani',
             '66' => 'Bugiri',
             '67' => 'Busia',
             '69' => 'Katakwi',
+            '70' => 'Luwero',
             '71' => 'Masaka',
+            '72' => 'Moyo',
             '73' => 'Nakasongola',
             '74' => 'Sembabule',
+            '76' => 'Tororo',
             '77' => 'Arua',
             '78' => 'Iganga',
             '79' => 'Kabarole',
@@ -4934,46 +4737,26 @@ my %country_region_names = (
   },
   'VN' => {
             '01' => 'An Giang',
-            '02' => 'Bac Thai',
             '03' => 'Ben Tre',
-            '04' => 'Binh Tri Thien',
             '05' => 'Cao Bang',
-            '07' => 'Dac Lac',
             '09' => 'Dong Thap',
-            '11' => 'Ha Bac',
-            '12' => 'Hai Hung',
             '13' => 'Hai Phong',
-            '14' => 'Ha Nam Ninh',
-            '16' => 'Ha Son Binh',
-            '17' => 'Ha Tuyen',
-            '19' => 'Hoang Lien Son',
             '20' => 'Ho Chi Minh',
             '21' => 'Kien Giang',
-            '22' => 'Lai Chau',
             '23' => 'Lam Dong',
             '24' => 'Long An',
-            '25' => 'Minh Hai',
-            '26' => 'Nghe Tinh',
-            '27' => 'Nghia Binh',
-            '28' => 'Phu Khanh',
-            '29' => 'Quang Nam-Da Nang',
             '30' => 'Quang Ninh',
-            '31' => 'Song Be',
             '32' => 'Son La',
             '33' => 'Tay Ninh',
             '34' => 'Thanh Hoa',
             '35' => 'Thai Binh',
-            '36' => 'Thuan Hai',
             '37' => 'Tien Giang',
-            '38' => 'Vinh Phu',
             '39' => 'Lang Son',
-            '40' => 'Dong Nai',
             '43' => 'An Giang',
             '44' => 'Dac Lac',
             '45' => 'Dong Nai',
             '46' => 'Dong Thap',
             '47' => 'Kien Giang',
-            '48' => 'Minh Hai',
             '49' => 'Song Be',
             '50' => 'Vinh Phu',
             '51' => 'Ha Noi',
@@ -4981,8 +4764,6 @@ my %country_region_names = (
             '53' => 'Ba Ria-Vung Tau',
             '54' => 'Binh Dinh',
             '55' => 'Binh Thuan',
-            '56' => 'Can Tho',
-            '57' => 'Gia Lai',
             '58' => 'Ha Giang',
             '59' => 'Ha Tay',
             '60' => 'Ha Tinh',
@@ -5054,6 +4835,7 @@ my %country_region_names = (
             '03' => 'Al Mahrah',
             '04' => 'Hadramawt',
             '05' => 'Shabwah',
+            '06' => 'Al Ghaydah',
             '08' => 'Al Hudaydah',
             '10' => 'Al Mahwit',
             '11' => 'Dhamar',
@@ -5101,8 +4883,14 @@ my %country_region_names = (
             '08' => 'Masvingo',
             '09' => 'Bulawayo',
             '10' => 'Harare'
-  }
+    }
 );
+
+sub continent_code_by_country_code { 
+    my $id = $_id_by_code{ $_[1] } || 0;
+    return $continents[$id];
+}
+sub time_zone { Geo::IP::Record->_time_zone( $_[1], $_[2] ) }
 
 sub _get_region_name {
   my ( $ccode, $region ) = @_;
@@ -5257,6 +5045,7 @@ sub _setup_segments {
               || ( $gi->{"databaseType"} == GEOIP_CITY_EDITION_REV1 )
               || ( $gi->{"databaseType"} == GEOIP_ORG_EDITION )
               || ( $gi->{"databaseType"} == GEOIP_DOMAIN_EDITION )
+              || ( $gi->{"databaseType"} == GEOIP_ASNUM_EDITION )
               || ( $gi->{"databaseType"} == GEOIP_ISP_EDITION ) ) {
         $gi->{"databaseSegments"} = 0;
 
@@ -5562,14 +5351,17 @@ sub get_city_record_as_hash {
 *record_by_addr = \&get_city_record_as_hash;
 *record_by_name = \&get_city_record_as_hash;
 
-#this function returns isp or org of the domain name
-sub org_by_name {
+sub org_by_name{
   my ( $gi, $host ) = @_;
-  my $ip_address = $gi->get_ip_address($host);
+  return $gi->org_by_addr($gi->get_ip_address($host));
+}
+
+#this function returns isp or org of the domain name
+sub org_by_addr {
+  my ( $gi, $ip_address ) = @_;
   my $seek_org   = $gi->_seek_country( addr_to_num($ip_address) );
   my $char;
   my $org_buf;
-  my $org_buf_length = 0;
   my $record_pointer;
 
   if ( $seek_org == $gi->{"databaseSegments"} ) {
@@ -5587,20 +5379,19 @@ sub org_by_name {
     $org_buf = substr($gi->{buf}, $record_pointer, MAX_ORG_RECORD_LENGTH );
 	}
 	
-  $char = ord( substr( $org_buf, 0, 1 ) );
-  while ( $char != 0 ) {
-    $org_buf_length++;
-    $char = ord( substr( $org_buf, $org_buf_length, 1 ) );
-  }
+  $org_buf = unpack 'Z*' => $org_buf;
 
-  $org_buf = substr( $org_buf, 0, $org_buf_length );
+  $org_buf = decode( 'iso-8859-1' => $org_buf ) 
+   if $gi->charset == GEOIP_CHARSET_UTF8; 
+
   return $org_buf;
 }
 
 #this function returns isp or org of the domain name
 *isp_by_name = \*org_by_name;
-*isp_by_addr = \*org_by_name;
-*org_by_addr = \*org_by_name;
+*isp_by_addr = \*org_by_addr;
+*name_by_addr = \*org_by_addr;
+*name_by_name = \*org_by_name;
 
 #this function returns the region
 sub region_by_name {
@@ -5687,6 +5478,10 @@ sub num_to_addr { join q{.}, unpack( C4 => pack( N => $_[0] ) ) }
 #  my @a = split( '\.', $_[0] );
 #  return $a[0] * 16777216 + $a[1] * 65536 + $a[2] * 256 + $a[3];
 #}
+
+sub database_edition {
+  $_[0]->{databaseType};
+}
 
 sub database_info {
   my $gi = shift;
@@ -5777,7 +5572,9 @@ print STDERR $@ if $@;
   GEOIP_REGION_EDITION_REV1   GEOIP_PROXY_EDITION
   GEOIP_ASNUM_EDITION         GEOIP_NETSPEED_EDITION
   GEOIP_CHARSET_ISO_8859_1    GEOIP_CHARSET_UTF8
-  GEOIP_MMAP_CACHE
+  GEOIP_MMAP_CACHE            GEOIP_CITYCONFIDENCE_EDITION
+  GEOIP_LOCATIONA_EDITION     GEOIP_ACCURACYRADIUS_EDITION
+  GEOIP_COUNTRY_EDITION_V6    GEOIP_DOMAIN_EDITION
 );
 
 1;
@@ -5790,14 +5587,40 @@ Geo::IP - Look up location and network information by IP Address
 =head1 SYNOPSIS
 
   use Geo::IP;
-
-  my $gi = Geo::IP->new(GEOIP_STANDARD);
-
+  my $gi = Geo::IP->new(GEOIP_MEMORY_CACHE);
   # look up IP address '24.24.24.24'
   # returns undef if country is unallocated, or not defined in our database
   my $country = $gi->country_code_by_addr('24.24.24.24');
   $country = $gi->country_code_by_name('yahoo.com');
   # $country is equal to "US"
+  
+
+  use Geo::IP;
+  my $gi = Geo::IP->open("/usr/local/share/GeoIP/GeoIPCity.dat", GEOIP_STANDARD);
+  my $record = $gi->record_by_addr('24.24.24.24');
+  print $record->country_code,
+        $record->country_code3,
+        $record->country_name,
+        $record->region,
+        $record->region_name,
+        $record->city,
+        $record->postal_code,
+        $record->latitude,
+        $record->longitude,
+        $record->time_zone,
+        $record->area_code,
+        $record->continent_code,
+        $record->metro_code;
+
+
+  # the IPv6 support is currently only avail if you use the CAPI which is much
+  # faster anyway. ie: print Geo::IP->api equals to 'CAPI'
+  use Socket;
+  use Socket6;
+  use Geo::IP;
+  my $g = Geo::IP->open('/usr/local/share/GeoIP/GeoIPv6.dat') or die;
+  print $g->country_code_by_ipnum_v6(inet_pton AF_INET6, '::24.24.24.24');
+  print $g->country_code_by_addr_v6('2a02:e88::');
 
 =head1 DESCRIPTION
 
@@ -5827,6 +5650,24 @@ database automatically each month, by running a program called geoipupdate
 included with the C API from a cronjob.  For more details on the differences
 between the free and paid databases, see:
 http://www.maxmind.com/app/geoip_country
+
+Do not miss the city database, described in Geo::IP::Record
+
+Make sure to use the F<geolite-mirror-simple.pl> script from the example directory to
+stay current with the databases.
+
+=head1 BENCHMARK the lookups are fast. This is my laptop ( examples/benchmark.pl ):
+
+  Benchmark: running city_mem, city_std, country_mem, country_std, country_v6_mem, country_v6_std, isp_mem, isp_std for at least 10 CPU seconds...
+    city_mem: 10.3121 wallclock secs (10.30 usr +  0.01 sys = 10.31 CPU) @ 387271.48/s (n=3992769)
+    city_std: 10.0658 wallclock secs ( 2.86 usr +  7.17 sys = 10.03 CPU) @ 54392.62/s (n=545558)
+  country_mem: 10.1772 wallclock secs (10.16 usr +  0.00 sys = 10.16 CPU) @ 1077507.97/s (n=10947481)
+  country_std: 10.1432 wallclock secs ( 2.30 usr +  7.85 sys = 10.15 CPU) @ 83629.56/s (n=848840)
+  country_v6_mem: 10.2579 wallclock secs (10.25 usr + -0.00 sys = 10.25 CPU) @ 365997.37/s (n=3751473)
+  country_v6_std: 10.8541 wallclock secs ( 1.77 usr +  9.07 sys = 10.84 CPU) @ 10110.42/s (n=109597)
+     isp_mem: 10.147 wallclock secs (10.13 usr +  0.01 sys = 10.14 CPU) @ 590109.66/s (n=5983712)
+     isp_std: 10.0484 wallclock secs ( 2.71 usr +  7.33 sys = 10.04 CPU) @ 73186.35/s (n=734791)
+
 
 =head1 CLASS METHODS
 
@@ -5903,11 +5744,11 @@ Returns a Geo::IP::Record object containing city location for an IP address.
 
 Returns a Geo::IP::Record object containing city location for a hostname.
 
-=item $org = $gi->org_by_addr( $ipaddr );
+=item $org = $gi->org_by_addr( $ipaddr ); B<depreciated> use C<name_by_addr> instead.
 
 Returns the Organization, ISP name or Domain Name for an IP address.
 
-=item $org = $gi->org_by_name( $hostname );
+=item $org = $gi->org_by_name( $hostname );  B<depreciated> use C<name_by_name> instead.
 
 Returns the Organization, ISP name or Domain Name for a hostname.
 
@@ -5947,6 +5788,120 @@ Sets netmask for the last lookup
 
 Returns the start and end of the current network block. The method tries to join several continous netblocks.
 
+=item $api = $gi->api or $api = Geo::IP->api
+
+Returns the currently used API.
+
+  # prints either CAPI or PurePerl
+  print Geo::IP->api;
+
+=item $continent = $gi->continent_code_by_country_code('US');
+
+Returns the continentcode by country code.
+
+=item $dbe = $gi->database_edition
+
+Returns the database_edition of the currently opened database.
+
+  if ( $gi->database_edition == GEOIP_COUNTRY_EDITION ){
+    ...
+  }
+
+=item $isp = $gi->isp_by_addr('24.24.24.24');
+
+Returns the isp for 24.24.24.24
+
+=item $isp = $gi->isp_by_name('www.maxmind.com');
+
+Returns the isp for www.something.de
+
+=item my $time_zone = $gi->time_zone('US', 'AZ');
+
+Returns the time zone for country/region.
+
+  # undef
+  print  $gi->time_zone('US', '');
+
+  # America/Phoenix
+  print  $gi->time_zone('US', 'AZ');
+
+  # Europe/Berlin
+  print  $gi->time_zone('DE', '00');
+
+  # Europe/Berlin
+  print  $gi->time_zone('DE', '');
+
+=item $id = $gi->id_by_addr('24.24.24.24');
+
+Returns the country_id for 24.24.24.24. The country_id might be useful as array
+index. 0 is unknown.
+
+=item $id = $gi->id_by_name('www.maxmind.com');
+
+Returns the country_id for www.maxmind.com. The country_id might be useful as array
+index. 0 is unknown.
+
+=item $cc = $gi->country_code3_by_addr_v6('::24.24.24.24');
+
+=item $cc = $gi->country_code3_by_name_v6('ipv6.google.com');
+
+=item $cc = $gi->country_code_by_addr_v6('2a02:ea0::');
+
+=item $cc = $gi->country_code_by_ipnum_v6($ipnum);
+
+  use Socket;
+  use Socket6;
+  use Geo::IP;
+  my $g = Geo::IP->open('/usr/local/share/GeoIP/GeoIPv6.dat') or die;
+  print $g->country_code_by_ipnum_v6(inet_pton AF_INET6, '::24.24.24.24');
+
+=item $cc = $gi->country_code_by_name_v6('ipv6.google.com');
+
+=item name_by_addr
+
+Returns the Organization, ISP name or Domain Name for a IP address.
+
+=item name_by_addr_v6
+
+Returns the Organization, ISP name or Domain Name for an IPv6 address.
+
+=item name_by_ipnum_v6
+
+Returns the Organization, ISP name or Domain Name for an ipnum.
+
+=item name_by_name
+
+Returns the Organization, ISP name or Domain Name for a hostname.
+
+=item name_by_name_v6
+
+Returns the Organization, ISP name or Domain Name for a hostname.
+
+=item org_by_addr_v6 B<depreciated> use C<name_by_addr_v6>
+
+Returns the Organization, ISP name or Domain Name for an IPv6 address.
+
+=item org_by_name_v6  B<depreciated> use C<name_by_name_v6>
+
+Returns the Organization, ISP name or Domain Name for a hostname.
+
+=item teredo
+
+Returns the current setting for teredo.
+
+=item enable_teredo
+
+Enable / disable teredo
+
+  $gi->enable_teredo(1); # enable
+  $gi->enable_teredo(0); # disable
+
+=item lib_version
+
+  if ( $gi->api eq 'CAPI' ){
+      print $gi->lib_version;
+  }
+
 =back
 
 =head1 MAILING LISTS AND CVS
@@ -5959,15 +5914,16 @@ http://lists.sourceforge.net/lists/listinfo/geoip-perl
 
 =head1 VERSION
 
-1.38
+1.39
 
 =head1 SEE ALSO
 
 Geo::IP::Record
 
+
 =head1 AUTHOR
 
-Copyright (c) 2009, MaxMind, Inc
+Copyright (c) 2011, MaxMind, Inc
 
 All rights reserved.  This package is free software; you can redistribute it
 and/or modify it under the same terms as Perl itself.

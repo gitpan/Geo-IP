@@ -5,7 +5,7 @@ extern "C" {
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-
+#include "ppport.h"
 #include "GeoIP.h"
 #include "GeoIPCity.h"
 
@@ -16,6 +16,26 @@ extern "C" {
 MODULE = Geo::IP	PACKAGE = Geo::IP
 
 PROTOTYPES: DISABLE
+
+
+const char *
+continent_code_by_country_code(CLASS, country_code)
+        char * CLASS
+        char * country_code
+    CODE:
+	RETVAL = (const char *) GeoIP_country_continent[GeoIP_id_by_code(country_code)];
+    OUTPUT:
+	RETVAL
+
+const char *
+time_zone(CLASS, country_code, region)
+        char * CLASS
+        char * country_code
+        char * region
+    CODE:
+	RETVAL = (const char *) GeoIP_time_zone_by_country_and_region(country_code, region);
+    OUTPUT:
+	RETVAL
 
 GeoIP *
 new(CLASS,flags = 0)
@@ -64,11 +84,64 @@ id_by_name(gi, name)
     OUTPUT:
 	RETVAL
 
+int
+database_edition (gi)
+	GeoIP *gi
+    CODE:
+	RETVAL = GeoIP_database_edition(gi);
+    OUTPUT:
+	RETVAL
+
 char *
 database_info (gi)
 	GeoIP *gi
     CODE:
 	RETVAL = GeoIP_database_info(gi);
+    OUTPUT:
+	RETVAL
+
+const char *
+country_code_by_ipnum_v6(gi, ptr)
+	GeoIP *gi
+	char *ptr
+    CODE:
+	RETVAL = GeoIP_country_code_by_ipnum_v6(gi,*(geoipv6_t*)ptr);
+    OUTPUT:
+	RETVAL
+
+const char *
+country_code_by_addr_v6(gi, addr)
+	GeoIP *gi
+	char * addr
+    CODE:
+	RETVAL = GeoIP_country_code_by_addr_v6(gi,addr);
+    OUTPUT:
+	RETVAL
+
+const char *
+country_code_by_name_v6(gi, name)
+	GeoIP *gi
+	char * name
+    CODE:
+	RETVAL = GeoIP_country_code_by_name_v6(gi,name);
+    OUTPUT:
+	RETVAL
+
+const char *
+country_code3_by_addr_v6(gi, addr)
+	GeoIP *gi
+	char * addr
+    CODE:
+	RETVAL = GeoIP_country_code3_by_addr_v6(gi,addr);
+    OUTPUT:
+	RETVAL
+
+const char *
+country_code3_by_name_v6(gi, name)
+	GeoIP *gi
+	char * name
+    CODE:
+	RETVAL = GeoIP_country_code3_by_name_v6(gi,name);
     OUTPUT:
 	RETVAL
 
@@ -126,23 +199,106 @@ country_name_by_name(gi, name)
     OUTPUT:
 	RETVAL
 
-char *
+void
+name_by_ipnum_v6(gi, ptr)
+	GeoIP *gi
+	char * ptr
+    PREINIT:
+        char * n;
+    PPCODE:
+        ST(0) = sv_newmortal();
+	n = GeoIP_name_by_ipnum_v6(gi,*(geoipv6_t*)ptr);
+        if ( n != NULL ) {
+          ST(0) = newSVpv(n, strlen(n));
+          free(n);
+#if defined(sv_utf8_decode)
+          if ( GeoIP_charset(gi) == GEOIP_CHARSET_UTF8 )
+            SvUTF8_on(ST(0));
+#endif
+          sv_2mortal(ST(0));
+        }
+       XSRETURN(1);
+
+void
+name_by_addr_v6(gi, addr)
+	GeoIP *gi
+	char * addr
+    PREINIT:
+        char * n;
+    PPCODE:
+        ST(0) = sv_newmortal();
+	n = GeoIP_name_by_addr_v6(gi,addr);
+        if ( n != NULL ) {
+          ST(0) = newSVpv(n, strlen(n));
+          free(n);
+#if defined(sv_utf8_decode)
+          if ( GeoIP_charset(gi) == GEOIP_CHARSET_UTF8 )
+            SvUTF8_on(ST(0));
+#endif
+          sv_2mortal(ST(0));
+        }
+       XSRETURN(1);
+
+void
+name_by_name_v6(gi, name)
+	GeoIP *gi
+	char * name
+    PREINIT:
+        char * n;
+    PPCODE:
+        ST(0) = sv_newmortal();
+	n = GeoIP_name_by_name_v6(gi,name);
+        if ( n != NULL ) {
+          ST(0) = newSVpv(n, strlen(n));
+          free(n);
+#if defined(sv_utf8_decode)
+          if ( GeoIP_charset(gi) == GEOIP_CHARSET_UTF8 )
+            SvUTF8_on(ST(0));
+#endif
+          sv_2mortal(ST(0));
+        }
+       XSRETURN(1);
+     
+void
 org_by_addr(gi, addr)
 	GeoIP *gi
 	char * addr
-    CODE:
-	RETVAL = GeoIP_org_by_addr(gi,addr);
-    OUTPUT:
-	RETVAL
+    PREINIT:
+        char * n;
+    PPCODE:
+        ST(0) = sv_newmortal();
+	n = GeoIP_org_by_addr(gi,addr);
+        if ( n != NULL ) {
+          ST(0) = newSVpv(n, strlen(n));
+          free(n);
+#if defined(sv_utf8_decode)
+          if ( GeoIP_charset(gi) == GEOIP_CHARSET_UTF8 )
+            SvUTF8_on(ST(0));
+#endif
+          sv_2mortal(ST(0));
+        }
+       XSRETURN(1);
 
-char *
+void
 org_by_name(gi, name)
 	GeoIP *gi
 	char * name
-    CODE:
-	RETVAL = GeoIP_org_by_name(gi,name);
-    OUTPUT:
-	RETVAL
+    PREINIT:
+        char * n;
+    PPCODE:
+        ST(0) = sv_newmortal();
+	n = GeoIP_org_by_name(gi,name);
+        if ( n != NULL ) {
+          ST(0) = newSVpv(n, strlen(n));
+          free(n);
+#if defined(sv_utf8_decode)
+          if ( GeoIP_charset(gi) == GEOIP_CHARSET_UTF8 )
+            SvUTF8_on(ST(0));
+#endif
+          sv_2mortal(ST(0));
+        }
+       XSRETURN(1);
+
 
 void
 range_by_ip(gi, addr)
@@ -231,11 +387,36 @@ record_by_name(gi, addr)
 	RETVAL
 
 int
+enable_teredo(gi, tf)
+	GeoIP *gi
+	int tf
+    CODE:
+	RETVAL = GeoIP_enable_teredo(gi, tf);
+    OUTPUT:
+	RETVAL
+
+int
+teredo(gi)
+	GeoIP *gi
+    CODE:
+	RETVAL = GeoIP_teredo(gi);
+    OUTPUT:
+	RETVAL
+
+int
 set_charset(gi, charset)
 	GeoIP *gi
 	int charset
     CODE:
 	RETVAL = GeoIP_set_charset(gi, charset);
+    OUTPUT:
+	RETVAL
+
+const char *
+lib_version(CLASS)
+      char * CLASS
+    CODE:
+	RETVAL = GeoIP_lib_version();
     OUTPUT:
 	RETVAL
 
