@@ -17,6 +17,15 @@ MODULE = Geo::IP	PACKAGE = Geo::IP
 
 PROTOTYPES: DISABLE
 
+const char *
+region_name_by_code(CLASS, country_code, region)
+        char * CLASS
+        char * country_code
+        char * region
+    CODE:
+	RETVAL = (const char *) GeoIP_region_name_by_code(country_code, region);
+    OUTPUT:
+	RETVAL
 
 const char *
 continent_code_by_country_code(CLASS, country_code)
@@ -363,6 +372,39 @@ region_by_name(gi, name)
 
 	  GeoIPRegion_delete(gir);
         }
+
+GeoIPRecord *
+record_by_ipnum_v6(gi, ipnum)
+	GeoIP *gi
+	char * ipnum
+    PREINIT:
+	char * CLASS = "Geo::IP::Record";
+    CODE:
+	RETVAL = GeoIP_record_by_ipnum_v6(gi,*(geoipv6_t*)ipnum);
+    OUTPUT:
+	RETVAL
+
+GeoIPRecord *
+record_by_addr_v6(gi, addr)
+	GeoIP *gi
+	char * addr
+    PREINIT:
+	char * CLASS = "Geo::IP::Record";
+    CODE:
+	RETVAL = GeoIP_record_by_addr_v6(gi,addr);
+    OUTPUT:
+	RETVAL
+
+GeoIPRecord *
+record_by_name_v6(gi, addr)
+	GeoIP *gi
+	char * addr
+    PREINIT:
+	char * CLASS = "Geo::IP::Record";
+    CODE:
+	RETVAL = GeoIP_record_by_name_v6(gi,addr);
+    OUTPUT:
+	RETVAL
 
 GeoIPRecord *
 record_by_addr(gi, addr)
