@@ -18,5 +18,5 @@ ok($gm->find_mirror_by_country('pk'), 'http://cpan.in.freeos.com');
 ok($gm->find_mirror_by_addr('62.60.128.1'), 'ftp://ftp.isu.net.sa/pub/CPAN/');
 
 # This test is somewhat unreliable
-# Philippines 
+# Philippines
 #ok($gm->find_mirror_by_addr('210.23.107.55'), 'http://www.adzu.edu.ph/CPAN');

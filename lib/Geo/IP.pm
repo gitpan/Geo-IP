@@ -7,7 +7,7 @@ use vars qw($VERSION @EXPORT  $GEOIP_PP_ONLY @ISA $XS_VERSION);
 BEGIN { $GEOIP_PP_ONLY = 0 unless defined($GEOIP_PP_ONLY); }
 
 BEGIN {
-    $VERSION = '1.41';
+    $VERSION = '1.42';
     eval {
 
         # PERL_DL_NONLAZY must be false, or any errors in loading will just
@@ -4395,7 +4395,8 @@ my %country_region_names = (
         '77' => 'Amnat Charoen',
         '78' => 'Mukdahan',
         '79' => 'Nong Bua Lamphu',
-        '80' => 'Sa Kaeo'
+        '80' => 'Sa Kaeo',
+		'81' => 'Bueng Kan',
     },
     'TJ' => {
         '01' => 'Kuhistoni Badakhshon',
