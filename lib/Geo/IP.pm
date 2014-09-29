@@ -4,10 +4,10 @@ use strict;
 use base qw(Exporter);
 use vars qw($VERSION @EXPORT  $GEOIP_PP_ONLY @ISA $XS_VERSION);
 
-BEGIN { $GEOIP_PP_ONLY = 0 unless defined($GEOIP_PP_ONLY); }
+BEGIN { $GEOIP_PP_ONLY = 0 unless defined($GEOIP_PP_ONLY) }
 
 BEGIN {
-    $VERSION = '1.43';
+    $VERSION = '1.44';
     eval {
 
         # PERL_DL_NONLAZY must be false, or any errors in loading will just
@@ -17,7 +17,7 @@ BEGIN {
         require DynaLoader;
         local @ISA = qw(DynaLoader);
         bootstrap Geo::IP $VERSION;
-    } unless $GEOIP_PP_ONLY;
+    } unless $GEOIP_PP_ONLY || $ENV{GEOIP_PP_ONLY};
 }
 
 require Geo::IP::Record;
@@ -27,11 +27,12 @@ sub GEOIP_MEMORY_CACHE() { 1; }    # PP
 sub GEOIP_CHECK_CACHE()  { 2; }
 sub GEOIP_INDEX_CACHE()  { 4; }
 sub GEOIP_MMAP_CACHE()   { 8; }    # PP
+sub GEOIP_SILENCE()      { 16; }
 
-sub GEOIP_UNKNOWN_SPEED()   { 0; } #PP
-sub GEOIP_DIALUP_SPEED()    { 1; } #PP
-sub GEOIP_CABLEDSL_SPEED()  { 2; } #PP
-sub GEOIP_CORPORATE_SPEED() { 3; } #PP
+sub GEOIP_UNKNOWN_SPEED()   { 0; }    #PP
+sub GEOIP_DIALUP_SPEED()    { 1; }    #PP
+sub GEOIP_CABLEDSL_SPEED()  { 2; }    #PP
+sub GEOIP_CORPORATE_SPEED() { 3; }    #PP
 
 BEGIN {
 
@@ -112,7 +113,7 @@ BEGIN {
       local $_ = $_[1];
       use bytes;
        s/([\x80-\xff])/my $c = ord($1);
-	       my $p = $c >= 192 ? 1 : 0; 
+	       my $p = $c >= 192 ? 1 : 0;
 	       pack ( 'CC' => 0xc2 + $p , $c & ~0x40 ); /ge;
 	   return $_;
     };
@@ -141,67 +142,67 @@ use constant FIPS_RANGE                => 360;
 
 my @continents = qw/
 --
-AS EU EU AS AS NA NA EU AS NA 
-AF AN SA OC EU OC NA AS EU NA 
-AS EU AF EU AS AF AF NA AS SA 
-SA NA AS AN AF EU NA NA AS AF 
-AF AF EU AF OC SA AF AS SA NA 
-NA AF AS AS EU EU AF EU NA NA 
-AF SA EU AF AF AF EU AF EU OC 
-SA OC EU EU EU AF EU NA AS SA 
-AF EU NA AF AF NA AF EU AN NA 
-OC AF SA AS AN NA EU NA EU AS 
-EU AS AS AS AS AS EU EU NA AS 
-AS AF AS AS OC AF NA AS AS AS 
-NA AS AS AS NA EU AS AF AF EU 
-EU EU AF AF EU EU AF OC EU AF 
-AS AS AS OC NA AF NA EU AF AS 
-AF NA AS AF AF OC AF OC AF NA 
-EU EU AS OC OC OC AS NA SA OC 
-OC AS AS EU NA OC NA AS EU OC 
-SA AS AF EU EU AF AS OC AF AF 
-EU AS AF EU EU EU AF EU AF AF 
-SA AF NA AS AF NA AF AN AF AS 
-AS OC AS AF OC AS EU NA OC AS 
-AF EU AF OC NA SA AS EU NA SA 
-NA NA AS OC OC OC AS AF EU AF 
-AF EU AF -- -- -- EU EU EU EU 
+AS EU EU AS AS NA NA EU AS NA
+AF AN SA OC EU OC NA AS EU NA
+AS EU AF EU AS AF AF NA AS SA
+SA NA AS AN AF EU NA NA AS AF
+AF AF EU AF OC SA AF AS SA NA
+NA AF AS AS EU EU AF EU NA NA
+AF SA EU AF AF AF EU AF EU OC
+SA OC EU EU EU AF EU NA AS SA
+AF EU NA AF AF NA AF EU AN NA
+OC AF SA AS AN NA EU NA EU AS
+EU AS AS AS AS AS EU EU NA AS
+AS AF AS AS OC AF NA AS AS AS
+NA AS AS AS NA EU AS AF AF EU
+EU EU AF AF EU EU AF OC EU AF
+AS AS AS OC NA AF NA EU AF AS
+AF NA AS AF AF OC AF OC AF NA
+EU EU AS OC OC OC AS NA SA OC
+OC AS AS EU NA OC NA AS EU OC
+SA AS AF EU EU AF AS OC AF AF
+EU AS AF EU EU EU AF EU AF AF
+SA AF NA AS AF NA AF AN AF AS
+AS OC AS AF OC AS EU NA OC AS
+AF EU AF OC NA SA AS EU NA SA
+NA NA AS OC OC OC AS AF EU AF
+AF EU AF -- -- -- EU EU EU EU
 NA NA NA AF
 /;
 
 my @countries = (
   undef, qw/
- AP EU AD AE AF AG AI 
+ AP EU AD AE AF AG AI
  AL AM CW AO AQ AR AS AT
- AU AW AZ BA BB BD BE BF 
- BG BH BI BJ BM BN BO BR 
- BS BT BV BW BY BZ CA CC 
- CD CF CG CH CI CK CL CM 
- CN CO CR CU CV CX CY CZ 
- DE DJ DK DM DO DZ EC EE 
- EG EH ER ES ET FI FJ FK 
- FM FO FR FX GA GB GD GE 
- GF GH GI GL GM GN GP GQ 
- GR GS GT GU GW GY HK HM 
- HN HR HT HU ID IE IL IN 
- IO IQ IR IS IT JM JO JP 
- KE KG KH KI KM KN KP KR 
- KW KY KZ LA LB LC LI LK 
- LR LS LT LU LV LY MA MC 
- MD MG MH MK ML MM MN MO 
- MP MQ MR MS MT MU MV MW 
- MX MY MZ NA NC NE NF NG 
- NI NL NO NP NR NU NZ OM 
- PA PE PF PG PH PK PL PM 
- PN PR PS PT PW PY QA RE 
- RO RU RW SA SB SC SD SE 
- SG SH SI SJ SK SL SM SN 
- SO SR ST SV SY SZ TC TD 
- TF TG TH TJ TK TM TN TO 
- TL TR TT TV TW TZ UA UG 
- UM US UY UZ VA VC VE VG 
- VI VN VU WF WS YE YT RS 
- ZA ZM ME ZW A1 A2 O1 AX 
+ AU AW AZ BA BB BD BE BF
+ BG BH BI BJ BM BN BO BR
+ BS BT BV BW BY BZ CA CC
+ CD CF CG CH CI CK CL CM
+ CN CO CR CU CV CX CY CZ
+ DE DJ DK DM DO DZ EC EE
+ EG EH ER ES ET FI FJ FK
+ FM FO FR FX GA GB GD GE
+ GF GH GI GL GM GN GP GQ
+ GR GS GT GU GW GY HK HM
+ HN HR HT HU ID IE IL IN
+ IO IQ IR IS IT JM JO JP
+ KE KG KH KI KM KN KP KR
+ KW KY KZ LA LB LC LI LK
+ LR LS LT LU LV LY MA MC
+ MD MG MH MK ML MM MN MO
+ MP MQ MR MS MT MU MV MW
+ MX MY MZ NA NC NE NF NG
+ NI NL NO NP NR NU NZ OM
+ PA PE PF PG PH PK PL PM
+ PN PR PS PT PW PY QA RE
+ RO RU RW SA SB SC SD SE
+ SG SH SI SJ SK SL SM SN
+ SO SR ST SV SY SZ TC TD
+ TF TG TH TJ TK TM TN TO
+ TL TR TT TV TW TZ UA UG
+ UM US UY UZ VA VC VE VG
+ VI VN VU WF WS YE YT RS
+ ZA ZM ME ZW A1 A2 O1 AX
  GG IM JE BL MF BQ SS O1 /
 );
 
@@ -760,7 +761,8 @@ my %country_region_names = (
         '83' => 'Rajshahi',
         '84' => 'Chittagong',
         '85' => 'Barisal',
-        '86' => 'Sylhet'
+        '86' => 'Sylhet',
+        '87' => 'Rangpur'
     },
     'BE' => {
         '01' => 'Antwerpen',
@@ -1522,7 +1524,8 @@ my %country_region_names = (
         '23' => 'Qina',
         '24' => 'Suhaj',
         '26' => 'Janub Sina\'',
-        '27' => 'Shamal Sina\''
+        '27' => 'Shamal Sina\'',
+        '28' => 'Al Uqsur'
     },
     'ER' => {
         '01' => 'Anseba',
@@ -2542,7 +2545,9 @@ my %country_region_names = (
         '17' => 'Stung Treng',
         '18' => 'Svay Rieng',
         '19' => 'Takeo',
+        '22' => 'Phnum Penh',
         '25' => 'Banteay Meanchey',
+        '28' => 'Preah Seihanu',
         '29' => 'Batdambang',
         '30' => 'Pailin'
     },
@@ -3011,7 +3016,24 @@ my %country_region_names = (
         'C3' => 'Zelino',
         'C4' => 'Zitose',
         'C5' => 'Zletovo',
-        'C6' => 'Zrnovci'
+        'C6' => 'Zrnovci',
+        'C8' => 'Cair',
+        'C9' => 'Caska',
+        'D2' => 'Debar',
+        'D3' => 'Demir Hisar',
+        'D4' => 'Gostivar',
+        'D6' => 'Kavadarci',
+        'D7' => 'Kumanovo',
+        'D8' => 'Makedonski Brod',
+        'E2' => 'Ohrid',
+        'E3' => 'Prilep',
+        'E5' => 'Dojran',
+        'E6' => 'Struga',
+        'E7' => 'Strumica',
+        'E8' => 'Tetovo',
+        'E9' => 'Valandovo',
+        'F1' => 'Veles',
+        'F2' => 'Aerodrom'
     },
     'ML' => {
         '01' => 'Bamako',
@@ -3621,11 +3643,18 @@ my %country_region_names = (
         'G8' => 'Aurora',
         'H2' => 'Quezon',
         'H3' => 'Negros Occidental',
+        'H9' => 'Biliran',
         'I6' => 'Compostela Valley',
         'I7' => 'Davao del Norte',
+        'J3' => 'Guimaras',
         'J4' => 'Himamaylan',
         'J7' => 'Kalinga',
+        'K1' => 'Las Pinas',
+        'K5' => 'Malabon',
         'K6' => 'Malaybalay',
+        'L4' => 'Muntinlupa',
+        'L5' => 'Navotas',
+        'L7' => 'Paranaque',
         'L9' => 'Passi',
         'M5' => 'San Jose del Monte',
         'M6' => 'San Juan',
@@ -3693,7 +3722,6 @@ my %country_region_names = (
     'PY' => {
         '01' => 'Alto Parana',
         '02' => 'Amambay',
-        '03' => 'Boqueron',
         '04' => 'Caaguazu',
         '05' => 'Caazapa',
         '06' => 'Central',
@@ -3707,8 +3735,7 @@ my %country_region_names = (
         '16' => 'Presidente Hayes',
         '17' => 'San Pedro',
         '19' => 'Canindeyu',
-        '20' => 'Chaco',
-        '21' => 'Nueva Asuncion',
+        '22' => 'Asuncion',
         '23' => 'Alto Paraguay',
         '24' => 'Boqueron'
     },
@@ -3943,6 +3970,7 @@ my %country_region_names = (
         '49' => 'Southern Darfur',
         '50' => 'Southern Kordofan',
         '52' => 'Kassala',
+        '53' => 'River Nile',
         '55' => 'Northern Darfur'
     },
     'SE' => {
@@ -4168,7 +4196,21 @@ my %country_region_names = (
         'N7' => 'Zirovnica Commune',
         'N8' => 'Zuzemberk Commune',
         'N9' => 'Apace Commune',
-        'O1' => 'Cirkulane Commune'
+        'O1' => 'Cirkulane Commune',
+        'O2' => 'Gorje',
+        'O3' => 'Kostanjevica na Krki',
+        'O4' => 'Log-Dragomer',
+        'O5' => 'Makole',
+        'O6' => 'Mirna',
+        'O7' => 'Mokronog-Trebelno',
+        'O8' => 'Poljcane',
+        'O9' => 'Recica ob Savinji',
+        'P1' => 'Rence-Vogrsko',
+        'P2' => 'Sentrupert',
+        'P3' => 'Smarjesk Toplice',
+        'P4' => 'Sredisce ob Dravi',
+        'P5' => 'Straza',
+        'P7' => 'Sveti Jurij v Slovenskih Goricah'
     },
     'SK' => {
         '01' => 'Banska Bystrica',
@@ -4407,7 +4449,9 @@ my %country_region_names = (
     'TJ' => {
         '01' => 'Kuhistoni Badakhshon',
         '02' => 'Khatlon',
-        '03' => 'Sughd'
+        '03' => 'Sughd',
+        '04' => 'Dushanbe',
+        '05' => 'Nohiyahoi Tobei Jumhuri'
     },
     'TL' => { '06' => 'Dili' },
     'TM' => {
@@ -4713,7 +4757,6 @@ my %country_region_names = (
         'OK' => 'Oklahoma',
         'OR' => 'Oregon',
         'PA' => 'Pennsylvania',
-        'PR' => 'Puerto Rico',
         'PW' => 'Palau',
         'RI' => 'Rhode Island',
         'SC' => 'South Carolina',
@@ -4764,7 +4807,8 @@ my %country_region_names = (
         '11' => 'Sirdaryo',
         '12' => 'Surkhondaryo',
         '13' => 'Toshkent',
-        '14' => 'Toshkent'
+        '14' => 'Toshkent',
+        '15' => 'Jizzax'
     },
     'VC' => {
         '01' => 'Charlotte',
@@ -4957,7 +5001,7 @@ my %country_region_names = (
         '10' => 'Harare'
     }
 );
-sub continent_code_by_country_code { 
+sub continent_code_by_country_code {
     my $id = $_id_by_code{ $_[1] } || 0;
     return $continents[$id];
 }
@@ -4972,7 +5016,7 @@ sub _get_region_name {
     if exists $country_region_names{$ccode};
 }
 
-# --- unfortunately we do not know the path so we assume the 
+# --- unfortunately we do not know the path so we assume the
 # default path /usr/local/share/GeoIP
 # if thats not true, you can set $Geo::IP::PP_OPEN_TYPE_PATH
 #
@@ -4995,7 +5039,7 @@ sub open_type {
 
   # backward compatibility for 2003 databases.
   $type -= 105 if $type >= 106;
-  
+
   my $name = $type_dat_name_mapper{$type};
   die("Invalid database type $type\n") unless $name;
 
@@ -5037,7 +5081,7 @@ sub open {
     else {
 		  local $/ = undef;
 		  $self{buf} = <$fh>;
-		}   
+		}
 		$self{fh}  = $fh;
     $gi = bless \%self, $class;
   }
@@ -5082,7 +5126,7 @@ sub _setup_segments {
   my $delim;
   my $buf;
 
-  $gi->{_charset} = GEOIP_CHARSET_ISO_8859_1; 
+  $gi->{_charset} = GEOIP_CHARSET_ISO_8859_1;
   $gi->{"databaseType"}  = GEOIP_COUNTRY_EDITION;
   $gi->{"record_length"} = STANDARD_RECORD_LENGTH;
 
@@ -5131,7 +5175,7 @@ sub _setup_segments {
 
 #record length is four for ISP databases and ORG databases
 #record length is three for country databases, region database and city databases
-        if (    $gi->{"databaseType"} == GEOIP_ORG_EDITION 
+        if (    $gi->{"databaseType"} == GEOIP_ORG_EDITION
              || $gi->{"databaseType"} == GEOIP_ISP_EDITION
              || $gi->{"databaseType"} == GEOIP_DOMAIN_EDITION ){
           $gi->{"record_length"} = ORG_RECORD_LENGTH;
@@ -5397,8 +5441,8 @@ sub get_city_record {
 
  # the pureperl API must convert the string by themself to UTF8
  # using Encode for perl >= 5.008 otherwise use it's own iso-8859-1 to utf8 converter
- $record_city = decode( 'iso-8859-1' => $record_city ) 
-   if $gi->charset == GEOIP_CHARSET_UTF8; 
+ $record_city = decode( 'iso-8859-1' => $record_city )
+   if $gi->charset == GEOIP_CHARSET_UTF8;
 
   return (
            $record_country_code, $record_country_code3, $record_country_name,
@@ -5413,11 +5457,11 @@ sub get_city_record_as_hash {
   my ( $gi, $host ) = @_;
   my %gir;
 
-  @gir{qw/ country_code   country_code3   country_name   region     city 
-           postal_code    latitude        longitude      dma_code   area_code 
+  @gir{qw/ country_code   country_code3   country_name   region     city
+           postal_code    latitude        longitude      dma_code   area_code
            continent_code region_name     metro_code / } =
     $gi->get_city_record($host);
-  
+
   return defined($gir{latitude}) ? bless( \%gir, 'Geo::IP::Record' ) : undef;
 }
 
@@ -5443,7 +5487,7 @@ sub org_by_addr {
 
   $record_pointer =
     $seek_org + ( 2 * $gi->{"record_length"} - 1 ) * $gi->{"databaseSegments"};
-  
+
   unless ( exists $gi->{buf} ) {
     seek( $gi->{"fh"}, $record_pointer, 0 );
     read( $gi->{"fh"}, $org_buf, MAX_ORG_RECORD_LENGTH );
@@ -5451,11 +5495,11 @@ sub org_by_addr {
 	else {
     $org_buf = substr($gi->{buf}, $record_pointer, MAX_ORG_RECORD_LENGTH );
 	}
-	
+
   $org_buf = unpack 'Z*' => $org_buf;
 
-  $org_buf = decode( 'iso-8859-1' => $org_buf ) 
-   if $gi->charset == GEOIP_CHARSET_UTF8; 
+  $org_buf = decode( 'iso-8859-1' => $org_buf )
+   if $gi->charset == GEOIP_CHARSET_UTF8;
 
   return $org_buf;
 }
@@ -5622,7 +5666,7 @@ sub last_netmask {
 
 sub DESTROY {
   my $gi = shift;
- 
+
   if ( exists $gi->{buf} && $gi->{flags} && ( $gi->{flags} & GEOIP_MMAP_CACHE ) ) {
     munmap( $gi->{buf} ) or die "munmap: $!";
 	  delete $gi->{buf};
@@ -5647,7 +5691,7 @@ print STDERR $@ if $@;
     GEOIP_CHARSET_ISO_8859_1    GEOIP_CHARSET_UTF8
     GEOIP_MMAP_CACHE            GEOIP_ACCURACYRADIUS_EDITION
     GEOIP_COUNTRY_EDITION_V6    GEOIP_DOMAIN_EDITION
-    GEOIP_NETSPEED_EDITION_REV1
+    GEOIP_NETSPEED_EDITION_REV1 GEOIP_SILENCE
     /;
 
 1;
@@ -5666,7 +5710,7 @@ Geo::IP - Look up location and network information by IP Address
   my $country = $gi->country_code_by_addr('24.24.24.24');
   $country = $gi->country_code_by_name('yahoo.com');
   # $country is equal to "US"
-  
+
 
   use Geo::IP;
   my $gi = Geo::IP->open("/usr/local/share/GeoIP/GeoIPCity.dat", GEOIP_STANDARD);
@@ -5697,27 +5741,25 @@ Geo::IP - Look up location and network information by IP Address
 
 =head1 DESCRIPTION
 
-This module uses a file based database.  This database simply contains
-IP blocks as keys, and countries as values. 
-This database should be more
-complete and accurate than reverse DNS lookups.
+This module uses the GeoIP Legacy file based database.  This database simply
+contains IP blocks as keys, and countries as values. This database should be
+more complete and accurate than reverse DNS lookups.
 
-This module can be used to automatically select the geographically closest mirror,
-to analyze your web server logs
-to determine the countries of your visitors, for credit card fraud
-detection, and for software export controls.
+This module can be used to automatically select the geographically closest
+mirror, to analyze your web server logs to determine the countries of your
+visitors, for credit card fraud detection, and for software export controls.
 
 =head1 IP ADDRESS TO COUNTRY DATABASES
 
-Free monthly updates to the database are available from 
+Free monthly updates to the database are available from
 
   http://dev.maxmind.com/geoip/geolite
 
-This free database is similar to the database contained in IP::Country, as 
-well as many paid databases. It uses ARIN, RIPE, APNIC, and LACNIC whois to 
+This free database is similar to the database contained in IP::Country, as
+well as many paid databases. It uses ARIN, RIPE, APNIC, and LACNIC whois to
 obtain the IP->Country mappings.
 
-If you require greater accuracy, MaxMind offers a database on a paid 
+If you require greater accuracy, MaxMind offers a database on a paid
 subscription basis.  Also included with this is a service that updates your
 database automatically each month, by running a program called geoipupdate
 included with the C API from a cronjob.  For more details on the differences
@@ -5752,19 +5794,23 @@ stay current with the databases.
 Constructs a new Geo::IP object with the default database located inside your system's
 I<datadir>, typically I</usr/local/share/GeoIP/GeoIP.dat>.
 
-Flags can be set to either GEOIP_STANDARD, or for faster performance
-(at a cost of using more memory), GEOIP_MEMORY_CACHE.  When using memory
-cache you can force a reload if the file is updated by setting GEOIP_CHECK_CACHE.
-GEOIP_INDEX_CACHE caches
-the most frequently accessed index portion of the database, resulting
-in faster lookups than GEOIP_STANDARD, but less memory usage than
-GEOIP_MEMORY_CACHE - useful for larger databases such as
-GeoIP Organization and GeoIP City.  Note, for GeoIP Country, Region
-and Netspeed databases, GEOIP_INDEX_CACHE is equivalent to GEOIP_MEMORY_CACHE
+Flags can be set to either GEOIP_STANDARD, or for faster performance (at a
+cost of using more memory), GEOIP_MEMORY_CACHE. When using memory cache you
+can force a reload if the file is updated by setting GEOIP_CHECK_CACHE.
+GEOIP_INDEX_CACHE caches the most frequently accessed index portion of the
+database, resulting in faster lookups than GEOIP_STANDARD, but less memory
+usage than GEOIP_MEMORY_CACHE - useful for larger databases such as GeoIP
+Legacy Organization and GeoIP City. Note, for GeoIP Country, Region and
+Netspeed databases, GEOIP_INDEX_CACHE is equivalent to GEOIP_MEMORY_CACHE.
 
-To combine flags, use the bitwise OR operator, |.  For example, to cache the database
-in memory, but check for an updated GeoIP.dat file, use:
-Geo::IP->new( GEOIP_MEMORY_CACHE | GEOIP_CHECK_CACHE. );
+Prior to geoip-api version 1.6.3, the C API would leak diagnostic messages
+onto stderr unconditionally. From Geo::IP v1.44 onwards, the flag
+squelching this behavior (GEOIP_SILENCE) is implicitly added to the flags
+passed in new(), open(), and open_type().
+
+To combine flags, use the bitwise OR operator, |.  For example, to cache the
+database in memory, but check for an updated GeoIP.dat file, use:
+Geo::IP->new( GEOIP_MEMORY_CACHE | GEOIP_CHECK_CACHE );
 
 =item $gi = Geo::IP->open( $database_filename, $flags );
 
@@ -5772,13 +5818,13 @@ Constructs a new Geo::IP object with the database located at C<$database_filenam
 
 =item $gi = Geo::IP->open_type( $database_type, $flags );
 
-Constructs a new Geo::IP object with the $database_type database located in the standard
-location.  For example
+Constructs a new Geo::IP object with the $database_type database located in
+the standard location.  For example
 
   $gi = Geo::IP->open_type( GEOIP_CITY_EDITION_REV1 , GEOIP_STANDARD );
 
-opens the database file in the standard location for GeoIP City, typically
-I</usr/local/share/GeoIP/GeoIPCity.dat>.
+opens the database file in the standard location for GeoIP Legacy City,
+typically I</usr/local/share/GeoIP/GeoIPCity.dat>.
 
 =back
 
@@ -5986,18 +6032,29 @@ https://github.com/maxmind/geoip-api-perl
 
 =head1 VERSION
 
-1.41
+1.44
 
 =head1 SEE ALSO
 
-Geo::IP::Record
+L<GeoIP2> - database reader for the GeoIP2 format.
 
 
 =head1 AUTHOR
 
-Copyright (c) 2013, MaxMind, Inc
+Copyright (c) 2014, MaxMind, Inc
 
 All rights reserved.  This package is free software; you can redistribute it
+and/or modify it under the same terms as Perl itself.
+
+
+=head1 COPYRIGHT
+
+Copyright (c) 2014, MaxMind LLC.
+All rights reserved.
+
+=head1 LICENSE
+
+This package is free software; you can redistribute it
 and/or modify it under the same terms as Perl itself.
 
 =cut

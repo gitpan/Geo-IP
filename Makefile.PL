@@ -73,12 +73,8 @@ __ERR__
     if ( !$found and !$config{PP} ) {
         print STDERR <<'GeoIP_Not_Installed;';
 
-The GeoIP CAPI is not installed you should do that. Otherwise try 
-
-    perl Makefile.PL PP=1
-    
-to install this module anyway. It uses a slower pure perl version 
-and you can rebuid it later.
+The GeoIP CAPI is not installed you should do that NOW. Otherwise the slow
+pure Perl API is used.
 
 GeoIP must be installed prior to building Geo::IP and I can't find
 it in the standard library directories. You can download GeoIP C API from:
@@ -99,7 +95,7 @@ then you may need to add /usr/local/lib to /etc/ld.so.conf then run
 /sbin/ldconfig /etc/ld.so.conf
 
 GeoIP_Not_Installed;
-        exit 0;    # make cpantesters happy
+        $config{PP} = 1;
     }
 }
 
@@ -118,7 +114,22 @@ push(
     @extras,
     ABSTRACT_FROM => 'lib/Geo/IP.pm',
     AUTHOR        => 'T.J. Mather (tjmather@tjmather.com)'
-) if ( $ExtUtils::MakeMaker::Version >= 5.4301 );
+) if ( $ExtUtils::MakeMaker::VERSION >= 5.4301 );
+
+push(
+    @extras,
+    LICENSE => 'perl_5',
+) if ( $ExtUtils::MakeMaker::VERSION >= 6.31 );
+
+push(
+    @extras,
+    META_MERGE     => {
+        resources => {
+            bugtracker => 'https://github.com/maxmind/geoip-api-perl/issues',
+            repository => 'https://github.com/maxmind/geoip-api-perl',
+        },
+    },
+) if ( $ExtUtils::MakeMaker::VERSION >= 6.46 );
 
 my $pp = delete $config{PP};
 
